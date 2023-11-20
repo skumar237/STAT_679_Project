@@ -1,0 +1,49 @@
+body {
+    font-family: Arial, sans-serif;
+  }
+  
+  #scatter-plot svg, #bar-chart svg {
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    display: block;
+    margin: 20px auto;
+  }
+  
+  .tooltip {
+    position: absolute;
+    text-align: center;
+    width: 120px;
+    height: 50px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: lightsteelblue;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  
+  .bar:hover {
+    fill: orange;
+  }
+  
+  .selected {
+    fill: red;
+    stroke: black;
+  }
+  
+  #info-panel {
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    background-color: #eee;
+  }
+  .selected {
+    fill: #f77;
+    stroke: #333;
+    stroke-width: 1px;
+  }
+  
+  #info-panel div {
+    margin-bottom: 5px;
+  }
+  
