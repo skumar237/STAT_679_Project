@@ -2,6 +2,7 @@ library(shiny)
 library(dplyr)
 library(ggplot2)
 library(plotly)
+library(DT)
 carData <- read.csv("679data.csv") 
 carData <- carData %>% filter(Year != 0)
 ui <- fluidPage(
