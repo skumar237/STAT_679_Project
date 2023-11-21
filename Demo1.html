@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Data</title>
+    <style>
+        #price-slider {
+            width: 80%;
+            margin-top: 20px;
+        }
+
+        #table-container {
+            max-height: 300px; 
+            overflow: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <label for="manufacturer-select">Select Manufacturer:</label>
+        <select id="manufacturer-select" name="manufacturer-select">
+            <option value="">all</option>
+        </select>
+    </div>
+    <div>
+        <label for="price-slider">Select Price Range:</label>
+        <input type="range" id="price-slider" name="price-slider" min="0" max="20000">
+        <span id="price-value">0</span> to <span id="price-max">20000</span> $
+    </div>
+    <div id="table-container">
+  
+        <table id="car-table"></table>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        function generateTable(data) {
+            const table = d3.select("#car-table")
+                .attr("class", "table");
+
+            const thead = table.append("thead");
+            thead.append("tr")
+                .selectAll("th")
+                .data(Object.keys(data[0]))
+                .enter()
+                .append("th")
+                .text(function (d) { return d; });
+
+            const tbody = table.append("tbody");
+            const rows = tbody.selectAll("tr")
+                .data(data)
+                .enter()
+                .append("tr");
+
+            rows.selectAll("td")
+                .data(function (d) {
+                    return Object.values(d);
+                })
+                .enter()
+                .append("td")
+                .text(function (d) {
+                    return d;
+                });
+        }
+
+        function updatePriceSlider(data, selectedManufacturer) {
+            const priceSlider = d3.select("#price-slider");
+            const priceValue = d3.select("#price-value");
+            const priceMax = d3.select("#price-max");
+
+            if (selectedManufacturer === "") {
+                const priceExtent = d3.extent(data, d => +d.Price);
+                priceSlider.attr("min", priceExtent[0]);
+                priceSlider.attr("max", priceExtent[1]);
+                priceSlider.property("value", priceExtent[0]); 
+                priceValue.text(priceExtent[0]);
+                priceMax.text(priceExtent[1]);
+            } else {
+                // Set the slider's minimum and maximum values based on the selected manufacturer's price range
+                const filteredData = data.filter(d => d.Manufacturer === selectedManufacturer);
+                const priceExtent = d3.extent(filteredData, d => +d.Price);
+                priceSlider.attr("min", priceExtent[0]);
+                priceSlider.attr("max", priceExtent[1]);
+                priceSlider.property("value", priceExtent[0]); 
+                priceValue.text(priceExtent[0]);
+                priceMax.text(priceExtent[1]);
+            }
+        }
+
+        function updateTable(selectedManufacturer, selectedPriceRange, data) {
+            const filteredData = data.filter(d => 
+                (selectedManufacturer === "" || d.Manufacturer === selectedManufacturer) &&
+                (d.Price >= selectedPriceRange[0] && d.Price <= selectedPriceRange[1])
+            );
+
+            const table = d3.select("#car-table");
+            table.select("tbody").selectAll("tr").remove(); 
+
+            const tbody = table.select("tbody");
+            const rows = tbody.selectAll("tr")
+                .data(filteredData)
+                .enter()
+                .append("tr");
+
+            rows.selectAll("td")
+                .data(function (d) {
+                    return Object.values(d);
+                })
+                .enter()
+                .append("td")
+                .text(function (d) {
+                    return d;
+                });
+        }
+
+        d3.csv("car.csv")
+            .then(function (data) {
+                // Extract all different manufacturers
+                const manufacturers = Array.from(new Set(data.map(d => d.Manufacturer)));
+
+                // Create drop-down menu
+                const select = d3.select("#manufacturer-select");
+
+                select.selectAll("option")
+                    .data([""].concat(manufacturers)) 
+                    .enter()
+                    .append("option")
+                    .text(d => d)
+                    .attr("value", d => d);
+
+                // Create price slider
+                const priceSlider = d3.select("#price-slider");
+                const priceValue = d3.select("#price-value");
+                const priceMax = d3.select("#price-max");
+
+                // Add event monitor
+                select.on("change", function () {
+                    const selectedManufacturer = d3.select(this).property("value");
+                    updatePriceSlider(data, selectedManufacturer); 
+                    const selectedPriceRange = [+priceSlider.property("min"), +priceSlider.property("max")];
+                    updateTable(selectedManufacturer, selectedPriceRange, data);
+                });
+
+                priceSlider.on("input", function () {
+                    const selectedPrice = +this.value;
+                    priceValue.text(selectedPrice);
+                    const selectedManufacturer = select.property("value");
+                    const selectedPriceRange = [+this.value, +priceSlider.property("max")];
+                    updateTable(selectedManufacturer, selectedPriceRange, data);
+                });
+
+                generateTable(data); 
+            })
+            .catch(function (error) {
+                console.error(error);
+            });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
