@@ -1,0 +1,117 @@
+---
+title: "Untitled"
+author: "Ziming Li"
+date: "2023-12-11"
+output: html_document
+---
+```{r}
+library(dplyr)
+
+your_dataset <- read.csv("car.csv")
+
+your_dataset <- na.omit(your_dataset)
+
+your_dataset$Year <- as.integer(your_dataset$Year)
+your_dataset$Manufacturer <- as.character(your_dataset$Manufacturer)
+your_dataset$Model <- as.character(your_dataset$Model)
+
+your_dataset <- your_dataset %>%
+  filter(EngineVolume > 0 & EngineVolume < 10,
+         Price > 0 & Price < 100000)
+
+your_dataset$Manufacturer <- tolower(your_dataset$Manufacturer)
+your_dataset$Model <- tolower(your_dataset$Model)
+
+your_dataset$CarAge <- 2020 - your_dataset$Year
+
+subsets_by_manufacturer <- split(your_dataset, your_dataset$Manufacturer)
+
+manufacturer_names <- names(subsets_by_manufacturer)
+print(manufacturer_names)
+
+```
+
+
+
+```{r}
+library(shiny)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(DT)
+
+
+ui <- fluidPage(
+    titlePanel("Car Model Detailed Information Panel"),
+    sidebarLayout(
+        sidebarPanel(
+            selectizeInput("model1", "Select First Model:", choices = NULL),
+            selectizeInput("model2", "Select Second Model:", choices = NULL)
+        ),
+        mainPanel(
+            plotlyOutput("comparisonPlot"),
+            DTOutput("modelDetailsTable")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    observe({
+        updateSelectizeInput(session, "model1", choices = unique(your_dataset$Model), server = TRUE)
+        updateSelectizeInput(session, "model2", choices = unique(your_dataset$Model), server = TRUE)
+    })
+
+    output$comparisonPlot <- renderPlotly({
+        validate(
+            need(input$model1 %in% your_dataset$Model, "Please select a valid first model."),
+            need(input$model2 %in% your_dataset$Model, "Please select a valid second model.")
+        )
+        
+        data_model1 <- filter(your_dataset, Model == input$model1)
+        data_model2 <- filter(your_dataset, Model == input$model2)
+        
+        p <- ggplot() +
+            geom_boxplot(data = data_model1, aes(x = 'Model 1', y = Price), fill = 'blue') +
+            geom_boxplot(data = data_model2, aes(x = 'Model 2', y = Price), fill = 'red') +
+            labs(title = "Price Comparison Between Models", x = "", y = "Price") +
+            theme_minimal()
+
+        ggplotly(p)
+    })
+
+    output$modelDetailsTable <- renderDT({
+        req(input$model1, input$model2)
+
+        details_model1 <- your_dataset %>% 
+            filter(Model == input$model1) %>%
+            summarize(Manufacturer = first(Manufacturer),
+                      Model = first(Model),
+                      FuelType = first(FuelType),
+                      Doors = first(Doors),
+                      Wheel = first(Wheel),
+                      Color = first(Color),
+                      MedianPrice = median(Price, na.rm = TRUE),
+                      MedianMileage = median(Mileage, na.rm = TRUE),
+                      MedianEngineVolume = median(EngineVolume, na.rm = TRUE))
+
+        details_model2 <- your_dataset %>% 
+            filter(Model == input$model2) %>%
+            summarize(Manufacturer = first(Manufacturer),
+                      Model = first(Model),
+                      FuelType = first(FuelType),
+                      Doors = first(Doors),
+                      Wheel = first(Wheel),
+                      Color = first(Color),
+                      MedianPrice = median(Price, na.rm = TRUE),
+                      MedianMileage = median(Mileage, na.rm = TRUE),
+                      MedianEngineVolume = median(EngineVolume, na.rm = TRUE))
+
+        combined_details <- rbind(details_model1, details_model2)
+        datatable(combined_details, options = list(pageLength = 5, searching = FALSE))
+    })
+}
+
+shinyApp(ui, server)
+
+```
+
