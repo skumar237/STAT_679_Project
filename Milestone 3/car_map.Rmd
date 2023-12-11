@@ -1,0 +1,139 @@
+---
+title: "car_map"
+author: "Xiaoyang Dong"
+date: "2023-12-11"
+output: html_document
+runtime: shiny
+---
+
+```{r}
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(DT)
+library(ggplot2)
+library(plotly)
+
+# Simulate country coordinates data
+country_coords <- data.frame(
+  Country = c("USA", "Germany", "Japan", "Italy", "United_Kingdom", "France", "South_Korea", "China", "Russia", "Sweden"),
+  Latitude = c(37.0902, 51.1657, 36.2048, 41.8719, 55.3781, 46.2276, 35.9078, 35.8617, 61.5240, 60.1282),
+  Longitude = c(-95.7129, 10.4515, 138.2529, 12.5674, -3.4360, 2.2137, 127.7669, 104.1954, 105.3188, 18.6435),
+  stringsAsFactors = FALSE
+)
+
+# Define countries and corresponding car brands
+brands_by_country <- list(
+  USA = c("BUICK", "CADILLAC", "CHEVROLET", "CHRYSLER", "DODGE", "FORD", "GMC", "HUMMER", "JEEP", "LINCOLN", "MERCURY", "PONTIAC", "SATURN", "TESLA"),
+  Germany = c("AUDI", "BMW", "MERCEDES-BENZ", "OPEL", "PORSCHE", "VOLKSWAGEN"),
+  Japan = c("ACURA", "DAIHATSU", "HONDA", "INFINITI", "ISUZU", "LEXUS", "MAZDA", "MITSUBISHI", "NISSAN", "SCION", "SUBARU", "SUZUKI", "TOYOTA"),
+  Italy = c("ALFA ROMEO", "FIAT", "LAMBORGHINI", "LANCIA", "MASERATI"),
+  United_Kingdom = c("ASTON MARTIN", "BENTLEY", "JAGUAR", "LAND ROVER", "MG", "MINI"),
+  France = c("CITROEN", "PEUGEOT", "RENAULT"),
+  South_Korea = c("DAEWOO", "HYUNDAI", "KIA", "SSANGYONG"),
+  China = c("CHERY", "FOTON", "GREATWALL", "HAVAL"),
+  Russia = c("GAZ", "UAZ", "VAZ"),
+  Sweden = c("SAAB", "VOLVO"),
+  Other = c("Other")
+  # Add other countries and brands as needed
+)
+
+# Load car data
+car_data <- read.csv('car.csv')
+
+# Match car data with countries
+car_data$Country <- sapply(car_data$Manufacturer, function(manufacturer) {
+  country <- NA  # Default value is NA
+  for (c in names(brands_by_country)) {
+    if (manufacturer %in% brands_by_country[[c]]) {
+      country <- c
+      break
+    }
+  }
+  return(country)
+})
+
+ui <- fluidPage(
+  titlePanel("World Car Brands Map"),
+  leafletOutput("map"),
+  selectInput("country", "Select Country", choices = names(brands_by_country)),
+  selectInput("manufacturer", "Select Manufacturer", choices = NULL),
+  plotlyOutput("pricePlot"),  # Use plotlyOutput
+  verbatimTextOutput("selectedInfo"),  # Text output to display selected region information
+  DTOutput("table")  # Table to display data
+)
+
+server <- function(input, output, session) {
+  
+  # Reactive expression to filter data based on selected manufacturer
+  filtered_data <- reactive({
+    req(input$manufacturer)  # Ensure manufacturer is selected
+    car_data %>%
+      filter(Manufacturer == input$manufacturer)
+  })
+
+  # Initialize the map
+  output$map <- renderLeaflet({
+    leaflet(country_coords) %>%
+      addTiles() %>%
+      addMarkers(~Longitude, ~Latitude, popup = ~Country, group = "country_markers", layerId = ~Country)
+  })
+  
+  # Update the country select input when a marker on the map is clicked
+  observeEvent(input$map_marker_click, {
+    click <- input$map_marker_click
+    updateSelectInput(session, "country", selected = click$id)
+  })
+
+  # When the selected country changes, update the manufacturer select input
+  observeEvent(input$country, {
+    manufacturers_in_country <- car_data %>%
+      filter(Country == input$country) %>%
+      `$`('Manufacturer') %>%
+      unique()
+    updateSelectInput(session, "manufacturer", choices = manufacturers_in_country)
+  })
+
+  # Update the price distribution plot to an interactive plot
+  output$pricePlot <- renderPlotly({
+    plot <- ggplot(filtered_data(), aes(x = Price)) +
+      geom_histogram(binwidth = 1000, fill = "blue", color = "black") +
+      theme_minimal() +
+      labs(title = "Price Distribution", x = "Price", y = "Count")
+    
+    ggplotly(plot)
+  })
+
+  # Handle plot click events
+  observeEvent(event_data("plotly_click"), {
+    click_data <- event_data("plotly_click")
+    if (!is.null(click_data)) {
+      # Get the clicked price (center of the bin)
+      price_clicked <- click_data$x
+      binwidth <- 1000  # Assume a binwidth of 1000
+      lower_bound <- price_clicked - binwidth / 2
+      upper_bound <- price_clicked + binwidth / 2
+
+      # Filter data based on the price range
+      selected_rows <- filtered_data() %>%
+        filter(Price >= lower_bound & Price < upper_bound)
+    
+      output$selectedInfo <- renderPrint({
+        selected_rows
+      })
+      output$table <- renderDT({
+        selected_rows
+      })
+    }
+  })
+
+  # Display the data table
+  output$table <- renderDT({
+    filtered_data()
+  })
+}
+
+# Run the application
+shinyApp(ui, server)
+```
+
