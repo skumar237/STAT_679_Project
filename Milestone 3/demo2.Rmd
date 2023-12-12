@@ -1,0 +1,73 @@
+---
+title: "demo2"
+author: "Ziming Li"
+date: "2023-12-11"
+output: html_document
+---
+```{r}
+library(dplyr)
+
+df <- read.csv("car.csv")
+
+df <- na.omit(df)
+
+df$Year <- as.integer(df$Year)
+df$Manufacturer <- as.character(df$Manufacturer)
+df$Model <- as.character(df$Model)
+
+df <- df %>%
+  filter(EngineVolume > 0 & EngineVolume < 10,
+         Price > 0 & Price < 100000)
+
+df$Manufacturer <- tolower(df$Manufacturer)
+df$Model <- tolower(df$Model)
+
+df$CarAge <- 2020 - df$Year
+
+subsets_by_manufacturer <- split(df, df$Manufacturer)
+
+manufacturer_names <- names(subsets_by_manufacturer)
+print(manufacturer_names)
+
+```
+
+
+```{r}
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+
+ui <- fluidPage(
+    titlePanel("Car Data Analysis for Non-Experts"),
+    sidebarLayout(
+        sidebarPanel(
+            selectInput("fuelType", "Select Fuel Type", choices = unique(df$FuelType))
+        ),
+        mainPanel(
+            plotlyOutput("priceDistributionPlot"),
+            textOutput("descriptionText")
+        )
+    )
+)
+
+server <- function(input, output) {
+    output$priceDistributionPlot <- renderPlotly({
+        data <- df %>% filter(FuelType == input$fuelType)
+        p <- ggplot(data, aes(x = Price)) +
+            geom_histogram(binwidth = 1000, fill = "blue") +
+            theme_minimal() +
+            labs(title = paste("Price Distribution for", input$fuelType, "Cars"), x = "Price", y = "Count")
+        ggplotly(p)
+    })
+
+    output$descriptionText <- renderText({
+        paste("The graph above shows the distribution of prices for cars that use", input$fuelType, "as fuel.")
+    })
+}
+
+shinyApp(ui, server)
+
+
+```
+
